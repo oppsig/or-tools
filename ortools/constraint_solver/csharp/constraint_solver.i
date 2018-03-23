@@ -31,6 +31,10 @@ using System.Collections;
 namespace operations_research {
 class ConstraintSolverParameters;
 class SearchLimitParameters;
+%typemap(cstype, out="$csclassname") Assignment * "ref $csclassname"
+%typemap(cstype, out="$csclassname") const Assignment * "$csclassname"
+%typemap(csin) Assignment * "$csclassname.getCPtr($csinput)"
+%typemap(csin) const Assignment * "$csclassname.getCPtr($csinput)"
 }  // namespace operations_research
 
 %module(directors="1", allprotected="1") operations_research;
@@ -47,6 +51,8 @@ class SearchLimitParameters;
 %feature("director") SearchMonitor;
 %feature("director") SequenceVarLocalSearchOperator;
 %feature("director") SymmetryBreaker;
+
+
 %{
 #include <setjmp.h>
 
@@ -887,6 +893,7 @@ PROTO2_RETURN(operations_research::CpModel,
               Google.OrTools.ConstraintSolver.CpModel)
 
 // Wrap cp includes
+
 %include "ortools/constraint_solver/constraint_solver.h"
 %include "ortools/constraint_solver/constraint_solveri.h"
 

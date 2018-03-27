@@ -1,12 +1,32 @@
-"""Capacitated Vehicle Routing Problem with Time Windows (and optional orders).
+# This Python file uses the following encoding: utf-8
+# Copyright 2015 Tin Arm Engineering AB
+# Copyright 2017 Google LLC
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Capacitated Vehicle Routing Problem with Time Windows.
 
    This is a sample using the routing library python wrapper to solve a
    CVRPTW problem.
    A description of the problem can be found here:
    http://en.wikipedia.org/wiki/Vehicle_routing_problem.
-   The variant which is tackled by this model includes a capacity dimension,
-   and time windows performed.
-   Distances are in km and times in seconds.
+   The variant which is tackled by this model includes a capacity dimension
+   and time windows.
+   Distances are computed using the Manhattan distances. Distances are in km
+   and times in seconds.
+
+
+   The optimization engine uses local search to improve solutions, first
+   solutions being generated using a cheapest addition heuristic.
 """
 from six.moves import xrange
 from ortools.constraint_solver import pywrapcp
@@ -44,7 +64,7 @@ class CreateDistanceCallback(object):
 
 # Demand callback
 class CreateDemandCallback(object):
-  """Create callback to get demands at location node."""
+  """Create callback to get demands at each location."""
 
   def __init__(self, demands):
     self.matrix = demands
@@ -121,7 +141,6 @@ def main():
     NullCapacitySlack = 0;
     fix_start_cumul_to_zero = True
     capacity = "Capacity"
-
     routing.AddDimension(demands_callback, NullCapacitySlack, VehicleCapacity,
                          fix_start_cumul_to_zero, capacity)
 
@@ -130,8 +149,8 @@ def main():
     time_per_demand_unit = 3 * 60
     horizon = 24 * 3600
     time = "Time"
-    # Travel speed: 50Km/h
-    speed = 50 / 3600
+    # Travel speed: 80Km/h
+    speed = 80 / 3600
 
     service_times = CreateServiceTimeCallback(demands, time_per_demand_unit)
     service_time_callback = service_times.ServiceTime
@@ -169,33 +188,33 @@ def main():
 
       for vehicle_nbr in xrange(num_vehicles):
         index = routing.Start(vehicle_nbr)
-        plan_output = 'Route {0}:'.format(vehicle_nbr)
+        plan_output = 'Route for vehicle {0}:\n'.format(vehicle_nbr)
+        route_dist = 0
 
         while not routing.IsEnd(index):
           node_index = routing.IndexToNode(index)
-          location_index = locations[node_index]
+          route_dist += dist_callback(node_index, routing.IndexToNode(assignment.Value(routing.NextVar(index))))
           load_var = capacity_dimension.CumulVar(index)
           time_var = time_dimension.CumulVar(index)
           plan_output += \
-                    " {node_index}: Location{location_index} Load({load}) Time({tmin}, {tmax}) -> ".format(
+                    " {node_index} Load({load}) Time({tmin}, {tmax}) -> ".format(
                         node_index=node_index,
-                        location_index=location_index,
                         load=assignment.Value(load_var),
                         tmin=str(assignment.Min(time_var)),
                         tmax=str(assignment.Max(time_var)))
           index = assignment.Value(routing.NextVar(index))
 
         node_index = routing.IndexToNode(index)
-        location_index = locations[node_index]
         load_var = capacity_dimension.CumulVar(index)
         time_var = time_dimension.CumulVar(index)
         plan_output += \
-                " {node_index}: Location{location_index} Load({load}) Time({tmin}, {tmax})".format(
+                  " {node_index} Load({load}) Time({tmin}, {tmax})\n".format(
                       node_index=node_index,
-                      location_index=location_index,
                       load=assignment.Value(load_var),
                       tmin=str(assignment.Min(time_var)),
                       tmax=str(assignment.Max(time_var)))
+        plan_output += 'Distance of the route {0}: {dist}\n'.format(vehicle_nbr, dist=route_dist)
+        plan_output += 'Demand met by vehicle {0}: {load}\n'.format(vehicle_nbr, load=assignment.Value(load_var))
         print (plan_output , '\n')
     else:
       print ('No solution found.')
@@ -214,13 +233,13 @@ def create_data_array():
                      18,       19,        1,       24,        8,       12,        4,        8,
                      24,       24,        2,       20,       15,        2,       14,        9]
 
-  start_times = [     0,      508,      103,      493,      225,      531,       89,      565,
-                    540,      108,      602,      466,      356,      303,      399,      382,
-                    362,      521,       23,      489,      445,      318,      380,       55,
-                    574,      515,      110,      310,      387,      491,      328,       73]
+  start_times = [     0,     5080,     1030,     4930,     2250,     5310,      890,     5650,
+                   5400,     1080,     6020,     4660,     3560,     3030,     3990,     3820,
+                   3620,     5210,      230,     4890,     4450,     3180,     3800,      550,
+                   5740,     5150,     1100,     3100,     3870,     4910,     3280,      730]
 
-  # tw_duration is the width of the time windows (here 60min).
-  tw_duration = 10 * 60 * 60
+  # tw_duration is the width of the time windows (here 5 hours).
+  tw_duration = 5 * 60 * 60
 
   # In this example, the width is the same at each location, so we define the end times to be
   # start times + tw_duration. For problems in which the time window widths vary by location,
